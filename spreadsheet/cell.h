@@ -28,6 +28,8 @@ private:
     class TextImpl;
     class FormulaImpl;
     bool WouldIntroduceCircularDependency(const Impl& new_impl) const;
+    void ClearOutgoingDependencies();
+    void UpdateDependencies();
     void InvalidateCacheRecursive(bool force = false);
 
     std::unique_ptr<Impl> impl_;

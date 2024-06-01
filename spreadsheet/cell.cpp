@@ -123,19 +123,36 @@ Cell::~Cell() {}
 void Cell::Set(std::string text) {
     std::unique_ptr<Impl> impl;
 
-    if (text.empty()) impl = std::make_unique<EmptyImpl>();
-    else if (text.size() > 1 && text[0] == FORMULA_SIGN) impl = std::make_unique<FormulaImpl>(std::move(text), sheet_);
-    else impl = std::make_unique<TextImpl>(std::move(text));
+    if (text.empty()) {
+        impl = std::make_unique<EmptyImpl>();
+    }
+    else if (text.size() > 1 && text[0] == FORMULA_SIGN) {
+        impl = std::make_unique<FormulaImpl>(std::move(text), sheet_);
+    }
+    else {
+        impl = std::make_unique<TextImpl>(std::move(text));
+    }
 
-    if (WouldIntroduceCircularDependency(*impl)) throw CircularDependencyException("");
+    if (WouldIntroduceCircularDependency(*impl)) {
+        throw CircularDependencyException("");
+    }
+
     impl_ = std::move(impl);
 
+    ClearOutgoingDependencies();
+    UpdateDependencies();
+
+    InvalidateCacheRecursive(true);
+}
+
+void Cell::ClearOutgoingDependencies() {
     for (Cell* outgoing : r_nodes_) {
         outgoing->l_nodes_.erase(this);
     }
-
     r_nodes_.clear();
+}
 
+void Cell::UpdateDependencies() {
     for (const auto& pos : impl_->GetReferencedCells()) {
         Cell* outgoing = sheet_.GetCellPtr(pos);
         if (!outgoing) {
@@ -145,12 +162,10 @@ void Cell::Set(std::string text) {
         r_nodes_.insert(outgoing);
         outgoing->l_nodes_.insert(this);
     }
-
-    InvalidateCacheRecursive(true);
 }
 
 void Cell::Clear() {
-    impl_ = std::make_unique<EmptyImpl>();
+    Set("");
 }
 
 Cell::Value Cell::GetValue() const {
